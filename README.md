@@ -42,10 +42,10 @@ It can chat naturally, answer questions, search YouTube videos, provide real vid
 
 ## Possible Problems
 
-AI may sometimes generate inaccurate responses
-Web search results may occasionally be unreliable
-Memory is temporary and resets after restart
-The project is still under development
+- AI may sometimes generate inaccurate responses.
+- Web search results may occasionally be unreliable.
+- Memory is temporary and resets after restart.
+- The project is still under development.
 
 ---
 

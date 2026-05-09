@@ -1,10 +1,8 @@
 import os
 from flask import Flask
-from threading import Thread
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# ---------------- CONFIG ----------------
 TOKEN = os.getenv("BOT_TOKEN")
 
 # ---------------- TELEGRAM BOT ----------------
@@ -18,22 +16,21 @@ bot = Application.builder().token(TOKEN).build()
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-def run_bot():
-    print("Telegram bot running...")
-    bot.run_polling()
-
-# ---------------- FLASK SERVER ----------------
+# ---------------- FLASK ----------------
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Bot is running"
 
-def run_web():
-    port = int(os.environ.get("PORT", 10000))
-    print(f"Web server running on port {port}")
-    app.run(host="0.0.0.0", port=port)
+# ---------------- RUN ----------------
+if __name__ == "__main__":
+    import threading
 
-# ---------------- START BOTH ----------------
-Thread(target=run_bot).start()
-run_web()
+    def run_bot():
+        bot.run_polling()
+
+    threading.Thread(target=run_bot, daemon=True).start()
+
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

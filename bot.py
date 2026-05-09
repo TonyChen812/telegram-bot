@@ -246,7 +246,11 @@ def webhook():
                 f"🟢 Bot is running\n"
                 f"⏱ Uptime: {minutes}m {seconds}s"
             )
-
+            
+        elif cmd == "/clear":
+            user_memory[user_id] = []
+            send_message(chat_id, "🧹 Memory cleared.")
+            
         else:
             send_message(chat_id, "❓ Unknown command. Type /help")
 

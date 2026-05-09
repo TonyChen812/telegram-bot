@@ -7,6 +7,7 @@ from telegram import Bot
 # ======================
 # ENV CHECK (IMPORTANT)
 # ======================
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise Exception("BOT_TOKEN is missing in environment variables")
@@ -48,6 +49,7 @@ def get_ai_response(text):
         return response.choices[0].message.content
 
     except Exception as e:
+        print("AI error:", e)
         return "⚠️ AI error. Try again later."
 
 # ======================
@@ -78,17 +80,14 @@ def webhook():
         return "ok"
 
     if text.startswith("/"):
+        if text == "/start":
+            send_message(chat_id, "👋 Welcome!")
+        elif text == "/help":
+            send_message(chat_id, "Commands: /start /help /status")
+        elif text == "/status":
+            uptime = int(time.time() - START_TIME)
+            send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
         return "ok"
-
-    if text == "/start":
-        send_message(chat_id, "👋 Welcome!")
-
-    elif text == "/help":
-        send_message(chat_id, "Commands: /start /help /status")
-
-    elif text == "/status":
-        uptime = int(time.time() - START_TIME)
-        send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
 
     else:
         reply = get_ai_response(text)

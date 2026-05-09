@@ -64,7 +64,7 @@ def build_messages(user_id, text):
     messages = [
         {
             "role": "system",
-            "content": "You are a helpful Telegram assistant. Keep responses short."
+            "content": "You are a helpful Telegram assistant. Keep responses short. If user asks technical questions about the bot, only answer based on provided code context."
         }
     ]
 

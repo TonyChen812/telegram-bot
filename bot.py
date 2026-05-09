@@ -1,3 +1,4 @@
+from groq import Groq
 import os
 import time
 from flask import Flask, request
@@ -33,6 +34,22 @@ def send_message(chat_id, text):
 
     requests.post(url, json=payload)
 
+def get_ai_response(text):
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": "You are a helpful Telegram bot assistant."},
+                {"role": "user", "content": text}
+            ],
+            temperature=0.7,
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return "⚠️ AI error. Try again later."
+
 # ======================
 @app.route("/")
 def home():
@@ -60,6 +77,9 @@ def webhook():
     if not text:
         return "ok"
 
+    if text.startswith("/"):
+        return "ok"
+
     if text == "/start":
         send_message(chat_id, "👋 Welcome!")
 
@@ -71,7 +91,8 @@ def webhook():
         send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
 
     else:
-        send_message(chat_id, f"You said: {text}")
+        reply = get_ai_response(text)
+        send_message(chat_id, reply)
 
     return "ok"
 

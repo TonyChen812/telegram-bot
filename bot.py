@@ -9,6 +9,8 @@ import requests   # 🔥 NEW (needed for web search)
 # ======================
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 TOKEN = os.getenv("BOT_TOKEN")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # 🔥 NEW
+
 if not TOKEN:
     raise Exception("BOT_TOKEN is missing in environment variables")
 
@@ -24,7 +26,7 @@ user_memory = {}
 MAX_MEMORY = 20
 
 # ======================
-# 🌐 NEW: WEB SEARCH FUNCTION
+# 🌐 WEB SEARCH
 # ======================
 def search_web(query):
     try:
@@ -48,6 +50,38 @@ def search_web(query):
     except Exception as e:
         print("Web search error:", e)
         return {"answer": "", "source": "", "related": []}
+
+# ======================
+# 🎥 NEW: YOUTUBE SEARCH
+# ======================
+def search_youtube(query):
+    try:
+        url = "https://www.googleapis.com/youtube/v3/search"
+        params = {
+            "part": "snippet",
+            "q": query,
+            "type": "video",
+            "maxResults": 1,
+            "key": YOUTUBE_API_KEY
+        }
+
+        r = requests.get(url, params=params, timeout=5)
+        data = r.json()
+
+        if "items" not in data or not data["items"]:
+            return None
+
+        video = data["items"][0]
+        video_id = video["id"]["videoId"]
+
+        return {
+            "title": video["snippet"]["title"],
+            "url": f"https://www.youtube.com/watch?v={video_id}"
+        }
+
+    except Exception as e:
+        print("YouTube error:", e)
+        return None
 
 # ======================
 # SAFE SEND
@@ -76,7 +110,7 @@ def safe_typing(chat_id):
 # ======================
 # MEMORY BUILDER
 # ======================
-def build_messages(user_id, text, web_data=None):
+def build_messages(user_id, text, web_data=None, youtube_data=None):
     if user_id not in user_memory:
         user_memory[user_id] = []
 
@@ -85,9 +119,7 @@ def build_messages(user_id, text, web_data=None):
             "role": "system",
             "content": (
                 "You are a helpful Telegram assistant. "
-                "Use web data if provided. "
-                "Keep answers short and accurate. "
-                "Do not invent facts."
+                "Use real data only. Never invent links."
             )
         }
     ]
@@ -96,6 +128,12 @@ def build_messages(user_id, text, web_data=None):
         messages.append({
             "role": "system",
             "content": f"Web search results: {web_data}"
+        })
+
+    if youtube_data:
+        messages.append({
+            "role": "system",
+            "content": f"YouTube result: {youtube_data}"
         })
 
     messages.extend(user_memory[user_id][-10:])
@@ -107,12 +145,19 @@ def build_messages(user_id, text, web_data=None):
 def get_ai_response(user_id, text):
     try:
         web_data = None
+        youtube_data = None
 
-        # 🔥 simple trigger (you can improve later)
-        if any(word in text.lower() for word in ["youtube", "song", "news", "search", "what is", "latest"]):
+        lower = text.lower()
+
+        # 🎥 YouTube trigger
+        if any(word in lower for word in ["youtube", "song", "video", "music"]):
+            youtube_data = search_youtube(text)
+
+        # 🌐 Web trigger
+        elif any(word in lower for word in ["news", "search", "what is", "latest"]):
             web_data = search_web(text)
 
-        messages = build_messages(user_id, text, web_data)
+        messages = build_messages(user_id, text, web_data, youtube_data)
 
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -122,10 +167,14 @@ def get_ai_response(user_id, text):
 
         reply = response.choices[0].message.content
 
+        # 💾 memory
         user_memory[user_id].append({"role": "user", "content": text})
         user_memory[user_id].append({"role": "assistant", "content": reply})
-
         user_memory[user_id] = user_memory[user_id][-MAX_MEMORY:]
+
+        # 🎥 inject real YouTube link (no fake links anymore)
+        if youtube_data:
+            reply += f"\n\n▶️ Watch: {youtube_data['url']}"
 
         return reply
 
@@ -172,7 +221,7 @@ def webhook():
         if cmd == "/start":
             send_message(chat_id, "👋 Welcome!")
         elif cmd == "/help":
-            send_message(chat_id, "Commands: /start /help /status /search")
+            send_message(chat_id, "Commands: /start /help /status")
         elif cmd == "/status":
             uptime = int(time.time() - START_TIME)
             send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")

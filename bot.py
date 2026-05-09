@@ -2,6 +2,7 @@ from groq import Groq
 import os
 import time
 from flask import Flask, request
+import requests   # 🔥 NEW (needed for web search)
 
 # ======================
 # ENV CHECK
@@ -19,16 +20,39 @@ app = Flask(__name__)
 processed_updates = set()
 START_TIME = time.time()
 
-# 🔥 MEMORY (with limit to avoid RAM crash on Render)
 user_memory = {}
-MAX_MEMORY = 20  # keep last 20 messages per user
+MAX_MEMORY = 20
+
+# ======================
+# 🌐 NEW: WEB SEARCH FUNCTION
+# ======================
+def search_web(query):
+    try:
+        url = "https://api.duckduckgo.com/"
+        params = {
+            "q": query,
+            "format": "json",
+            "no_html": 1,
+            "skip_disambig": 1
+        }
+
+        r = requests.get(url, params=params, timeout=5)
+        data = r.json()
+
+        return {
+            "answer": data.get("AbstractText", ""),
+            "source": data.get("AbstractURL", ""),
+            "related": [topic["Text"] for topic in data.get("RelatedTopics", [])[:5]]
+        }
+
+    except Exception as e:
+        print("Web search error:", e)
+        return {"answer": "", "source": "", "related": []}
 
 # ======================
 # SAFE SEND
 # ======================
 def send_message(chat_id, text):
-    import requests
-
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, json={
         "chat_id": chat_id,
@@ -39,44 +63,42 @@ def send_message(chat_id, text):
 # TYPING EFFECT
 # ======================
 def send_typing(chat_id):
-    import requests
-
     url = f"https://api.telegram.org/bot{TOKEN}/sendChatAction"
     requests.post(url, json={
         "chat_id": chat_id,
         "action": "typing"
     })
 
-# small delay so typing is visible
 def safe_typing(chat_id):
     send_typing(chat_id)
     time.sleep(0.8)
 
 # ======================
-# MEMORY BUILDER (safe)
+# MEMORY BUILDER
 # ======================
-def build_messages(user_id, text):
+def build_messages(user_id, text, web_data=None):
     if user_id not in user_memory:
         user_memory[user_id] = []
-
-    history = user_memory[user_id]
 
     messages = [
         {
             "role": "system",
             "content": (
-    "You are a Telegram chat assistant running inside a Python Flask bot. "
-    "You do NOT know server specs, RAM, CPU, or system configuration unless explicitly provided. "
-    "If asked about memory, limits, infrastructure, or system behavior: "
-    "respond with 'I do not have access to system-level details'. "
-    "Never guess numbers like MB, GB, or limits. "
-    "Be consistent across responses."
-    "If user asks technical system questions, refuse estimation and stay factual."
-)
+                "You are a helpful Telegram assistant. "
+                "Use web data if provided. "
+                "Keep answers short and accurate. "
+                "Do not invent facts."
+            )
         }
     ]
 
-    messages.extend(history[-10:])
+    if web_data:
+        messages.append({
+            "role": "system",
+            "content": f"Web search results: {web_data}"
+        })
+
+    messages.extend(user_memory[user_id][-10:])
     messages.append({"role": "user", "content": text})
 
     return messages
@@ -84,7 +106,13 @@ def build_messages(user_id, text):
 # ======================
 def get_ai_response(user_id, text):
     try:
-        messages = build_messages(user_id, text)
+        web_data = None
+
+        # 🔥 simple trigger (you can improve later)
+        if any(word in text.lower() for word in ["youtube", "song", "news", "search", "what is", "latest"]):
+            web_data = search_web(text)
+
+        messages = build_messages(user_id, text, web_data)
 
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -94,14 +122,9 @@ def get_ai_response(user_id, text):
 
         reply = response.choices[0].message.content
 
-        # 🔥 memory cap (prevents RAM overflow)
-        if user_id not in user_memory:
-            user_memory[user_id] = []
-
         user_memory[user_id].append({"role": "user", "content": text})
         user_memory[user_id].append({"role": "assistant", "content": reply})
 
-        # trim memory
         user_memory[user_id] = user_memory[user_id][-MAX_MEMORY:]
 
         return reply
@@ -149,7 +172,7 @@ def webhook():
         if cmd == "/start":
             send_message(chat_id, "👋 Welcome!")
         elif cmd == "/help":
-            send_message(chat_id, "Commands: /start /help /status")
+            send_message(chat_id, "Commands: /start /help /status /search")
         elif cmd == "/status":
             uptime = int(time.time() - START_TIME)
             send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
@@ -165,7 +188,6 @@ def webhook():
     send_message(chat_id, reply)
 
     return "ok"
-
 
 # ======================
 if __name__ == "__main__":

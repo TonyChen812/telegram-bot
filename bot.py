@@ -221,7 +221,7 @@ def webhook():
             send_message(
                 chat_id,
                 "👋 Welcome!\n\n"
-                "I’m your AI assistant bot.\n"
+                "I’m Nova, your AI assistant bot.\n"
                 "Just send me a message and I’ll respond.\n\n"
                 "Type /help to see commands."
             )

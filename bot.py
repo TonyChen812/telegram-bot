@@ -35,6 +35,7 @@ def send_message(chat_id, text):
 
     requests.post(url, json=payload)
 
+# ======================
 def get_ai_response(text):
     try:
         response = client.chat.completions.create(
@@ -62,23 +63,32 @@ def home():
 def webhook():
     data = request.get_json(force=True)
 
-    if "message" not in data:
+    # ======================
+    # SUPPORT ALL TELEGRAM UPDATE TYPES
+    # ======================
+    message = (
+        data.get("message")
+        or data.get("business_message")
+        or data.get("channel_post")
+    )
+
+    if not message:
         return "ok"
 
     update_id = data.get("update_id")
-
-    # prevent duplicates
     if update_id in processed_updates:
         return "ok"
     processed_updates.add(update_id)
 
-    message = data["message"]
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
     if not text:
         return "ok"
 
+    # ======================
+    # COMMAND HANDLING
+    # ======================
     if text.startswith("/"):
         if text == "/start":
             send_message(chat_id, "👋 Welcome!")
@@ -89,9 +99,11 @@ def webhook():
             send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
         return "ok"
 
-    else:
-        reply = get_ai_response(text)
-        send_message(chat_id, reply)
+    # ======================
+    # AI RESPONSE
+    # ======================
+    reply = get_ai_response(text)
+    send_message(chat_id, reply)
 
     return "ok"
 

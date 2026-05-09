@@ -39,6 +39,13 @@ def webhook():
     if "message" not in data:
         return "ok"
 
+    update_id = data.get("update_id")
+
+    # prevent duplicates
+    if update_id in processed_updates:
+        return "ok"
+    processed_updates.add(update_id)
+
     message = data["message"]
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
@@ -47,6 +54,20 @@ def webhook():
         return "ok"
 
     text_lower = text.lower()
+
+    if text_lower == "/start":
+        send_message(chat_id, "👋 Welcome!")
+
+    elif text_lower == "/help":
+        send_message(chat_id, "Commands: /start /help /status")
+
+    elif text_lower == "/status":
+        send_message(chat_id, "🟢 Bot running")
+
+    else:
+        send_message(chat_id, f"You said: {text}")
+
+    return "ok"
 
     # ======================
     # COMMANDS

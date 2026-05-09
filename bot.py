@@ -39,7 +39,19 @@ def send_message(chat_id, text):
     requests.post(url, json=payload)
 
 # ======================
-# 🔥 NEW: build conversation context
+# 🔥 NEW: typing effect
+def send_typing(chat_id):
+    import requests
+
+    url = f"https://api.telegram.org/bot{TOKEN}/sendChatAction"
+    payload = {
+        "chat_id": chat_id,
+        "action": "typing"
+    }
+
+    requests.post(url, json=payload)
+
+# ======================
 def build_messages(user_id, text):
     if user_id not in user_memory:
         user_memory[user_id] = []
@@ -58,7 +70,7 @@ def build_messages(user_id, text):
         }
     ]
 
-    messages.extend(history[-10:])  # keep last 10 messages
+    messages.extend(history[-10:])
     messages.append({"role": "user", "content": text})
 
     return messages
@@ -76,7 +88,7 @@ def get_ai_response(user_id, text):
 
         reply = response.choices[0].message.content
 
-        # 🔥 store memory
+        # store memory
         user_memory[user_id].append({"role": "user", "content": text})
         user_memory[user_id].append({"role": "assistant", "content": reply})
 
@@ -96,9 +108,6 @@ def home():
 def webhook():
     data = request.get_json(force=True)
 
-    # ======================
-    # SUPPORT ALL TELEGRAM UPDATE TYPES
-    # ======================
     message = (
         data.get("message")
         or data.get("business_message")
@@ -127,22 +136,19 @@ def webhook():
 
         if cmd == "/start":
             send_message(chat_id, "👋 Welcome! I am your AI assistant bot.")
-            return "ok"
-
         elif cmd == "/help":
             send_message(chat_id, "Commands:\n/start\n/help\n/status")
-            return "ok"
-
         elif cmd == "/status":
             uptime = int(time.time() - START_TIME)
             send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
-            return "ok"
 
         return "ok"
 
     # ======================
     # AI RESPONSE (UPDATED)
     # ======================
+    send_typing(chat_id)   # 👈 typing effect
+
     reply = get_ai_response(chat_id, text)
     send_message(chat_id, reply)
 

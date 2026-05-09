@@ -41,7 +41,14 @@ def get_ai_response(text):
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "You are a helpful Telegram bot assistant."},
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful Telegram assistant. "
+                        "Do NOT invent Telegram features, business modes, or APIs. "
+                        "If unsure, say you are not sure."
+                    )
+                },
                 {"role": "user", "content": text}
             ],
             temperature=0.7,
@@ -83,20 +90,28 @@ def webhook():
     chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "")
 
-    if not text:
+    if not chat_id or not text:
         return "ok"
 
     # ======================
     # COMMAND HANDLING
     # ======================
     if text.startswith("/"):
-        if text == "/start":
-            send_message(chat_id, "👋 Welcome!")
-        elif text == "/help":
-            send_message(chat_id, "Commands: /start /help /status")
-        elif text == "/status":
+        cmd = text.split()[0].lower()
+
+        if cmd == "/start":
+            send_message(chat_id, "👋 Welcome! I am your AI assistant bot.")
+            return "ok"
+
+        elif cmd == "/help":
+            send_message(chat_id, "Commands:\n/start\n/help\n/status")
+            return "ok"
+
+        elif cmd == "/status":
             uptime = int(time.time() - START_TIME)
             send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
+            return "ok"
+
         return "ok"
 
     # ======================

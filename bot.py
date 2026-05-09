@@ -232,8 +232,8 @@ def webhook():
                 "📌 Commands:\n"
                 "/start - start the bot\n"
                 "/help - show this menu\n"
-                "/status - check uptime\n\n"
-                "/clear - clear AI's Memory\n"
+                "/status - check uptime\n"
+                "/clear - clear AI's Memory\n\n"
                 "💬 You can also chat normally with me."
             )
 

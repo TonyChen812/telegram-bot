@@ -21,6 +21,9 @@ bot = Bot(TOKEN)
 processed_updates = set()
 START_TIME = time.time()
 
+# 🔥 NEW: memory storage (per user)
+user_memory = {}
+
 # ======================
 # SAFE SEND
 # ======================
@@ -36,25 +39,48 @@ def send_message(chat_id, text):
     requests.post(url, json=payload)
 
 # ======================
-def get_ai_response(text):
+# 🔥 NEW: build conversation context
+def build_messages(user_id, text):
+    if user_id not in user_memory:
+        user_memory[user_id] = []
+
+    history = user_memory[user_id]
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful Telegram assistant. "
+                "Remember conversation context. "
+                "Keep replies short and clear. "
+                "Do NOT invent Telegram features or fake APIs."
+            )
+        }
+    ]
+
+    messages.extend(history[-10:])  # keep last 10 messages
+    messages.append({"role": "user", "content": text})
+
+    return messages
+
+# ======================
+def get_ai_response(user_id, text):
     try:
+        messages = build_messages(user_id, text)
+
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful Telegram assistant. "
-                        "Do NOT invent Telegram features, business modes, or APIs. "
-                        "If unsure, say you are not sure."
-                    )
-                },
-                {"role": "user", "content": text}
-            ],
+            messages=messages,
             temperature=0.7,
         )
 
-        return response.choices[0].message.content
+        reply = response.choices[0].message.content
+
+        # 🔥 store memory
+        user_memory[user_id].append({"role": "user", "content": text})
+        user_memory[user_id].append({"role": "assistant", "content": reply})
+
+        return reply
 
     except Exception as e:
         print("AI error:", e)
@@ -115,9 +141,9 @@ def webhook():
         return "ok"
 
     # ======================
-    # AI RESPONSE
+    # AI RESPONSE (UPDATED)
     # ======================
-    reply = get_ai_response(text)
+    reply = get_ai_response(chat_id, text)
     send_message(chat_id, reply)
 
     return "ok"

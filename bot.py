@@ -15,12 +15,19 @@ def home():
 def webhook():
     data = request.get_json(force=True)
 
+    # safety check (important)
+    if "message" not in data:
+        return "ok"
+
     chat_id = data["message"]["chat"]["id"]
     text = data["message"].get("text", "")
 
-    bot.send_message(chat_id=chat_id, text=f"You said: {text}")
+    # FIX: Bot API v22 requires async handling workaround
+    import asyncio
+    asyncio.run(bot.send_message(chat_id=chat_id, text=f"You said: {text}"))
 
     return "ok"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

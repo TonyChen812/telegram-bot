@@ -2,14 +2,14 @@ from groq import Groq
 import os
 import time
 from flask import Flask, request
-import requests   # 🔥 NEW (needed for web search)
+import requests
 
 # ======================
 # ENV CHECK
 # ======================
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 TOKEN = os.getenv("BOT_TOKEN")
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # 🔥 NEW
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 if not TOKEN:
     raise Exception("BOT_TOKEN is missing in environment variables")
@@ -44,7 +44,7 @@ def search_web(query):
         return {
             "answer": data.get("AbstractText", ""),
             "source": data.get("AbstractURL", ""),
-            "related": [topic["Text"] for topic in data.get("RelatedTopics", [])[:5]]
+            "related": [t["Text"] for t in data.get("RelatedTopics", [])[:5] if isinstance(t, dict)]
         }
 
     except Exception as e:
@@ -52,9 +52,12 @@ def search_web(query):
         return {"answer": "", "source": "", "related": []}
 
 # ======================
-# 🎥 NEW: YOUTUBE SEARCH
+# 🎥 YOUTUBE SEARCH
 # ======================
 def search_youtube(query):
+    if not YOUTUBE_API_KEY:
+        return None
+
     try:
         url = "https://www.googleapis.com/youtube/v3/search"
         params = {
@@ -87,28 +90,26 @@ def search_youtube(query):
 # SAFE SEND
 # ======================
 def send_message(chat_id, text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, json={
-        "chat_id": chat_id,
-        "text": text
-    })
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        json={"chat_id": chat_id, "text": text}
+    )
 
 # ======================
-# TYPING EFFECT
+# TYPING
 # ======================
 def send_typing(chat_id):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendChatAction"
-    requests.post(url, json={
-        "chat_id": chat_id,
-        "action": "typing"
-    })
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendChatAction",
+        json={"chat_id": chat_id, "action": "typing"}
+    )
 
 def safe_typing(chat_id):
     send_typing(chat_id)
     time.sleep(0.8)
 
 # ======================
-# MEMORY BUILDER
+# MEMORY + STRICT PROMPT FIX
 # ======================
 def build_messages(user_id, text, web_data=None, youtube_data=None):
     if user_id not in user_memory:
@@ -118,23 +119,20 @@ def build_messages(user_id, text, web_data=None, youtube_data=None):
         {
             "role": "system",
             "content": (
-                "You are a helpful Telegram assistant. "
-                "Use real data only. Never invent links."
+                "You are a Telegram assistant. "
+                "DO NOT generate or guess any URLs or links. "
+                "Never output YouTube, Spotify, or website links. "
+                "Only describe content. "
+                "All links will be added by the system."
             )
         }
     ]
 
     if web_data:
-        messages.append({
-            "role": "system",
-            "content": f"Web search results: {web_data}"
-        })
+        messages.append({"role": "system", "content": f"Web: {web_data}"})
 
     if youtube_data:
-        messages.append({
-            "role": "system",
-            "content": f"YouTube result: {youtube_data}"
-        })
+        messages.append({"role": "system", "content": f"YouTube: {youtube_data}"})
 
     messages.extend(user_memory[user_id][-10:])
     messages.append({"role": "user", "content": text})
@@ -149,12 +147,10 @@ def get_ai_response(user_id, text):
 
         lower = text.lower()
 
-        # 🎥 YouTube trigger
-        if any(word in lower for word in ["youtube", "song", "video", "music"]):
+        if any(w in lower for w in ["youtube", "song", "video", "music"]):
             youtube_data = search_youtube(text)
 
-        # 🌐 Web trigger
-        elif any(word in lower for word in ["news", "search", "what is", "latest"]):
+        elif any(w in lower for w in ["news", "search", "what is", "latest"]):
             web_data = search_web(text)
 
         messages = build_messages(user_id, text, web_data, youtube_data)
@@ -167,12 +163,16 @@ def get_ai_response(user_id, text):
 
         reply = response.choices[0].message.content
 
-        # 💾 memory
+        # 🔥 STRIP ANY FAKE LINKS (CRITICAL FIX)
+        import re
+        reply = re.sub(r"https?://\S+", "", reply).strip()
+
+        # memory
         user_memory[user_id].append({"role": "user", "content": text})
         user_memory[user_id].append({"role": "assistant", "content": reply})
         user_memory[user_id] = user_memory[user_id][-MAX_MEMORY:]
 
-        # 🎥 inject real YouTube link (no fake links anymore)
+        # attach REAL youtube link only
         if youtube_data:
             reply += f"\n\n▶️ Watch: {youtube_data['url']}"
 
@@ -212,9 +212,6 @@ def webhook():
     if not chat_id or not text:
         return "ok"
 
-    # ======================
-    # COMMANDS
-    # ======================
     if text.startswith("/"):
         cmd = text.split()[0].lower()
 
@@ -228,9 +225,6 @@ def webhook():
 
         return "ok"
 
-    # ======================
-    # AI RESPONSE + TYPING
-    # ======================
     safe_typing(chat_id)
 
     reply = get_ai_response(chat_id, text)

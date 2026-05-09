@@ -211,16 +211,41 @@ def webhook():
     if not chat_id or not text:
         return "ok"
 
-    if text.startswith("/"):
-        cmd = text.split()[0].lower()
+   if text.startswith("/"):
+       cmd = text.split()[0].lower()
 
         if cmd == "/start":
-            send_message(chat_id, "👋 Welcome!")
+            send_message(
+                chat_id,
+                "👋 Welcome!\n\n"
+                "I’m your AI assistant bot.\n"
+                "Just send me a message and I’ll respond.\n\n"
+                "Type /help to see commands."
+            )
+
         elif cmd == "/help":
-            send_message(chat_id, "Commands: /start /help /status")
+            send_message(
+                chat_id,
+                "📌 Commands:\n"
+                "/start - start the bot\n"
+                "/help - show this menu\n"
+                "/status - check uptime\n\n"
+                "💬 You can also chat normally with me."
+            )
+
         elif cmd == "/status":
             uptime = int(time.time() - START_TIME)
-            send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
+            minutes = uptime // 60
+            seconds = uptime % 60
+
+            send_message(
+                chat_id,
+                f"🟢 Bot is running\n"
+                f"⏱ Uptime: {minutes}m {seconds}s"
+            )
+
+        else:
+            send_message(chat_id, "❓ Unknown command. Type /help")
 
         return "ok"
 

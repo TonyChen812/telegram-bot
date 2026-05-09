@@ -249,7 +249,7 @@ def webhook():
             )
             
         elif cmd == "/clear":
-            user_memory[user_id] = []
+            user_memory[chat_id] = []
             send_message(chat_id, "🧹 Memory cleared.")
             
         else:

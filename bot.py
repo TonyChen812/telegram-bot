@@ -23,13 +23,15 @@ START_TIME = time.time()
 # SAFE SEND
 # ======================
 def send_message(chat_id, text):
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(
-        bot.send_message(chat_id=chat_id, text=text)
-    )
-    loop.close()
+    import requests
+
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text
+    }
+
+    requests.post(url, json=payload)
 
 # ======================
 @app.route("/")

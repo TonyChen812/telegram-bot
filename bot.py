@@ -80,7 +80,7 @@ def webhook():
         return "ok"
     processed_updates.add(update_id)
 
-    chat_id = message["chat"]["id"]
+    chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "")
 
     if not text:

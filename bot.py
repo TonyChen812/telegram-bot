@@ -71,6 +71,7 @@ def build_messages(user_id, text):
     "respond with 'I do not have access to system-level details'. "
     "Never guess numbers like MB, GB, or limits. "
     "Be consistent across responses."
+    "If user asks technical system questions, refuse estimation and stay factual."
 )
         }
     ]

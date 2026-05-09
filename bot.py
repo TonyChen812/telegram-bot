@@ -1,20 +1,29 @@
+from flask import Flask
+from threading import Thread
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 import os
 
-TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! I am online.")
+app_web = Flask(__name__)
+
+@app_web.route("/")
+def home():
+    return "Bot is running!"
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    await update.message.reply_text(f"You said: {text}")
+    await update.message.reply_text(update.message.text)
 
-app = Application.builder().token(TOKEN).build()
+bot = Application.builder().token(BOT_TOKEN).build()
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-print("Bot running...")
-app.run_polling()
+def run_bot():
+    print("Bot running...")
+    bot.run_polling()
+
+Thread(target=run_bot).start()
+
+port = int(os.environ.get("PORT", 10000))
+app_web.run(host="0.0.0.0", port=port)

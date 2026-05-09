@@ -211,8 +211,11 @@ def webhook():
     if not chat_id or not text:
         return "ok"
 
-   if text.startswith("/"):
-       cmd = text.split()[0].lower()
+    # ======================
+    # COMMANDS (FIXED INDENTATION)
+    # ======================
+    if text.startswith("/"):
+        cmd = text.split()[0].lower()
 
         if cmd == "/start":
             send_message(
@@ -249,8 +252,17 @@ def webhook():
 
         return "ok"
 
+    # ======================
+    # AI RESPONSE
+    # ======================
     safe_typing(chat_id)
     reply = get_ai_response(chat_id, text)
     send_message(chat_id, reply)
 
     return "ok"
+
+
+# ======================
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

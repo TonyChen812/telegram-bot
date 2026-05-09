@@ -3,6 +3,7 @@ import os
 import time
 from flask import Flask, request
 import requests
+import re
 
 # ======================
 # ENV CHECK
@@ -109,7 +110,7 @@ def safe_typing(chat_id):
     time.sleep(0.8)
 
 # ======================
-# MEMORY + STRICT PROMPT FIX
+# MEMORY + PROMPT
 # ======================
 def build_messages(user_id, text, web_data=None, youtube_data=None):
     if user_id not in user_memory:
@@ -121,9 +122,9 @@ def build_messages(user_id, text, web_data=None, youtube_data=None):
             "content": (
                 "You are a Telegram assistant. "
                 "DO NOT generate or guess any URLs or links. "
-                "Never output YouTube, Spotify, or website links. "
+                "Never output fake links. "
                 "Only describe content. "
-                "All links will be added by the system."
+                "All links will be added by system."
             )
         }
     ]
@@ -163,16 +164,14 @@ def get_ai_response(user_id, text):
 
         reply = response.choices[0].message.content
 
-        # 🔥 STRIP ANY FAKE LINKS (CRITICAL FIX)
-        import re
+        # strip fake links
         reply = re.sub(r"https?://\S+", "", reply).strip()
 
-        # memory
         user_memory[user_id].append({"role": "user", "content": text})
         user_memory[user_id].append({"role": "assistant", "content": reply})
+
         user_memory[user_id] = user_memory[user_id][-MAX_MEMORY:]
 
-        # attach REAL youtube link only
         if youtube_data:
             reply += f"\n\n▶️ Watch: {youtube_data['url']}"
 
@@ -226,13 +225,7 @@ def webhook():
         return "ok"
 
     safe_typing(chat_id)
-
     reply = get_ai_response(chat_id, text)
     send_message(chat_id, reply)
 
     return "ok"
-
-# ======================
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)

@@ -3,13 +3,24 @@ import time
 from flask import Flask, request
 from telegram import Bot
 
+# ======================
+# ENV CHECK (IMPORTANT)
+# ======================
 TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise Exception("BOT_TOKEN is missing in environment variables")
 
 app = Flask(__name__)
 bot = Bot(TOKEN)
 
 # ======================
-# SAFE SEND FUNCTION
+# GLOBAL STATE
+# ======================
+processed_updates = set()
+START_TIME = time.time()
+
+# ======================
+# SAFE SEND
 # ======================
 def send_message(chat_id, text):
     import asyncio
@@ -21,17 +32,11 @@ def send_message(chat_id, text):
     loop.close()
 
 # ======================
-# BOT START TIME (for /status)
-# ======================
-START_TIME = time.time()
-
-# ======================
-# ROUTES
-# ======================
 @app.route("/")
 def home():
     return "Bot is running"
 
+# ======================
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
@@ -53,59 +58,20 @@ def webhook():
     if not text:
         return "ok"
 
-    text_lower = text.lower()
-
-    if text_lower == "/start":
+    if text == "/start":
         send_message(chat_id, "👋 Welcome!")
 
-    elif text_lower == "/help":
+    elif text == "/help":
         send_message(chat_id, "Commands: /start /help /status")
 
-    elif text_lower == "/status":
-        send_message(chat_id, "🟢 Bot running")
-
-    else:
-        send_message(chat_id, f"You said: {text}")
-
-    return "ok"
-
-    # ======================
-    # COMMANDS
-    # ======================
-    if text_lower == "/start":
-        send_message(chat_id,
-            "👋 Welcome! I'm your bot.\n\nType /help to see commands."
-        )
-
-    elif text_lower == "/help":
-        send_message(chat_id,
-            "📌 Commands:\n"
-            "/start - Start bot\n"
-            "/help - Show commands\n"
-            "/status - Bot status"
-        )
-
-    elif text_lower == "/status":
+    elif text == "/status":
         uptime = int(time.time() - START_TIME)
-        send_message(chat_id,
-            f"🟢 Bot is running\n⏱ Uptime: {uptime} seconds"
-        )
+        send_message(chat_id, f"🟢 Running\n⏱ {uptime}s")
 
     else:
-        # default reply
         send_message(chat_id, f"You said: {text}")
 
     return "ok"
-
-
-# ======================
-# OPTIONAL WEBHOOK SET
-# ======================
-@app.before_first_request
-def set_webhook():
-    base_url = os.getenv("RENDER_EXTERNAL_URL")
-    if base_url:
-        bot.set_webhook(url=f"{base_url}/webhook")
 
 
 # ======================
